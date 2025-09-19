@@ -6,6 +6,7 @@ import time
 import json
 import os
 import requests
+import re
 
 # 模拟延时 0.5 秒
 time.sleep(0.5)
@@ -16,10 +17,134 @@ api_key = os.getenv('OPENAI_API_KEY')
 model = os.getenv('MODEL', 'gpt-4o-mini')
 debug = os.getenv('DEBUG', 'false').lower() in ['true', '1', 'yes']
 use_ollama = os.getenv('USE_OLLAMA', 'false').lower() in ['true', '1', 'yes']
+# 长文本检测阈值
+long_text_threshold = int(os.getenv('LONG_TEXT_THRESHOLD', '100'))  # 默认100字符
+max_segment_length = int(os.getenv('MAX_SEGMENT_LENGTH', '400'))    # 每段最大长度
 
 
 if not api_key:
     raise ValueError("API key not found! Please set the OPENAI_API_KEY environment variable.")
+
+def is_long_text(text):
+    """
+    检测是否为长文本
+    判断标准：
+    1. 文本长度超过阈值，且
+    2. 包含多个句子分隔符（中文句号、分号、换行符等）
+    """
+    # 检测中文分隔符的数量
+    chinese_separators = ['。', '；', '？', '！', '\n']
+    separator_count = sum(text.count(sep) for sep in chinese_separators)
+    
+    # 检测英文分隔符的数量
+    english_separators = ['. ', '; ', '? ', '! ', '\n']
+    separator_count += sum(text.count(sep) for sep in english_separators)
+    
+    # 如果文本长度超过阈值且包含2个或以上分隔符，则认为是长文本
+    return len(text) >= long_text_threshold and separator_count >= 2
+
+def segment_text(text):
+    """
+    将长文本分段
+    优先级：句号 > 分号 > 问号/感叹号 > 换行符
+    """
+    segments = []
+    
+    # 定义分隔符优先级（按重要性排序）
+    separators = [
+        # 中文分隔符
+        '。', '；', '？', '！',
+        # 英文分隔符
+        '. ', '; ', '? ', '! ',
+        # 换行符
+        '\n'
+    ]
+    
+    current_text = text.strip()
+    
+    while current_text:
+        if len(current_text) <= max_segment_length:
+            # 如果剩余文本长度小于最大段落长度，直接作为一段
+            segments.append(current_text.strip())
+            break
+        
+        # 寻找最佳分割点
+        best_split_pos = -1
+        best_separator = None
+        
+        for separator in separators:
+            # 在最大长度范围内寻找分隔符
+            search_text = current_text[:max_segment_length]
+            pos = search_text.rfind(separator)
+            
+            if pos > best_split_pos:
+                best_split_pos = pos
+                best_separator = separator
+        
+        if best_split_pos > 0:
+            # 找到合适的分割点
+            segment = current_text[:best_split_pos + len(best_separator)].strip()
+            if segment:
+                segments.append(segment)
+            current_text = current_text[best_split_pos + len(best_separator):].strip()
+        else:
+            # 没有找到合适的分割点，强制按最大长度分割
+            segment = current_text[:max_segment_length].strip()
+            if segment:
+                segments.append(segment)
+            current_text = current_text[max_segment_length:].strip()
+    
+    return [seg for seg in segments if seg.strip()]
+
+def translate_long_text(text, target_language="zh"):
+    """
+    翻译长文本，自动分段处理
+    """
+    if not is_long_text(text):
+        # 如果不是长文本，直接调用普通翻译
+        return translate_text(text, target_language)
+    
+    if debug:
+        print(f"Debug - 检测到长文本，长度: {len(text)} 字符")
+    
+    # 分段处理
+    segments = segment_text(text)
+    
+    if debug:
+        print(f"Debug - 分为 {len(segments)} 段进行翻译")
+        for i, segment in enumerate(segments, 1):
+            print(f"Debug - 第{i}段 ({len(segment)}字符): {segment[:50]}...")
+    
+    translated_segments = []
+    
+    for i, segment in enumerate(segments, 1):
+        if debug:
+            print(f"Debug - 正在翻译第 {i}/{len(segments)} 段...")
+        
+        try:
+            translated_segment = translate_text(segment, target_language)
+            translated_segments.append(translated_segment)
+            
+            # 在分段翻译之间添加小延时，避免API限制
+            if i < len(segments):
+                time.sleep(0.2)
+                
+        except Exception as e:
+            if debug:
+                print(f"Debug - 第{i}段翻译失败: {str(e)}")
+            translated_segments.append(f"[翻译失败: {str(e)}]")
+    
+    # 拼接结果
+    # 如果原文包含换行符，保持换行格式；否则用空格连接
+    if '\n' in text:
+        result = '\n'.join(translated_segments)
+    else:
+        result = ' '.join(translated_segments)
+    
+    if debug:
+        print(f"Debug - 长文本翻译完成，结果长度: {len(result)} 字符")
+    
+    return result
 
 def translate_text(text, target_language="zh"):
     """
@@ -38,7 +163,7 @@ def translate_text(text, target_language="zh"):
         "model": model,
         "messages": [{"role": "system", "content": "You are a professional translator, and the content I need translated should prioritize terminology related to the field of computer technology."},
                      {"role": "user", "content": prompt}],
-        "max_tokens": 1000,
+        "max_tokens": 1500,
     }
 
     if debug:
@@ -91,10 +216,10 @@ def main():
     # 判断输入语言是否为中文（通过 Unicode 范围判断）
     if any('\u4e00' <= char <= '\u9fff' for char in query):
         # 如果输入是中文，翻译为英文
-        translated = translate_text(query, target_language="en")
+        translated = translate_long_text(query, target_language="en")
     else:
         # 如果输入是英文，翻译为中文
-        translated = translate_text(query, target_language="zh")
+        translated = translate_long_text(query, target_language="zh")
 
     # 返回翻译结果
     output = {

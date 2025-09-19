@@ -1,0 +1,10 @@
+---
+globs: *.py
+alwaysApply: false
+---
+
+# AI脚本开发规范
+
+- 尽量使用开源的代码进行开发
+- 必须同时支持openai和ollama两种模型
+- 每次编写完成脚本，都必须要进行测试，测试时默认使用本地的ollama: `http://localhost:11434`、模型使用`qwen2.5:7b`进行测试
