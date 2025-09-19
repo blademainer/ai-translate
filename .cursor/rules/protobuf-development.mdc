@@ -1,0 +1,48 @@
+---
+globs: *.proto,Makefile,makefile
+---
+
+# Protobuf开发规范
+
+## 代码生成方式
+- **默认使用make指令生成协议代码**
+- 所有protobuf相关的代码生成都应该通过Makefile统一管理
+- 确保生成的代码具有一致性和可重复性
+
+## Makefile结构建议
+创建Makefile来管理protobuf代码生成：
+```makefile
+# Protocol buffer generation
+.PHONY: proto
+proto:
+	protoc --go_out=. --go_opt=paths=source_relative \
+		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+		api/proto/*.proto
+
+# Clean generated files
+.PHONY: proto-clean
+proto-clean:
+	find . -name "*.pb.go" -delete
+	find . -name "*_grpc.pb.go" -delete
+
+# Install required tools
+.PHONY: proto-tools
+proto-tools:
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+```
+
+## Proto文件组织
+- 将.proto文件放在 `api/proto/` 目录下
+- 使用有意义的包名和服务名
+- 遵循protobuf官方命名规范
+
+## 版本管理
+- 在proto文件中明确定义API版本
+- 保持向后兼容性
+- 使用适当的字段编号策略
+
+## 生成的代码管理
+- 生成的.pb.go文件应该提交到版本控制
+- 在CI/CD中验证生成的代码是最新的
+- 使用go:generate注释来标记生成的代码

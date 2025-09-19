@@ -1,0 +1,53 @@
+---
+globs: *.md,*.puml
+---
+
+# 技术文档编写规范
+
+## PlantUML和C4架构图
+- 编写技术文档时使用PlantUML辅助说明
+- **默认使用C4风格来编写架构图**
+- 在PlantUML文件中引入C4库：`!include <C4/C4_Container>`
+
+## C4架构图层次
+使用C4模型的标准层次：
+1. **System Context Diagram**: 系统上下文图
+2. **Container Diagram**: 容器图
+3. **Component Diagram**: 组件图
+4. **Code Diagram**: 代码图（可选）
+
+## PlantUML文档示例
+```plantuml
+@startuml
+!include <C4/C4_Container>
+
+title AI Translation System - Container Diagram
+
+Person(user, "User", "Uses Alfred workflow for translation")
+System_Boundary(translate_system, "AI Translation System") {
+    Container(alfred_workflow, "Alfred Workflow", "Alfred", "User interface for translation")
+    Container(python_script, "Translation Script", "Python", "Handles OpenAI API calls")
+    Container(go_service, "Translation Service", "Go", "Core translation logic")
+}
+
+System_Ext(openai_api, "OpenAI API", "External translation service")
+
+Rel(user, alfred_workflow, "Uses")
+Rel(alfred_workflow, python_script, "Calls")
+Rel(python_script, openai_api, "API Request")
+Rel(go_service, openai_api, "API Request")
+
+@enduml
+```
+
+## 文档组织结构
+- 技术文档放在 `docs/` 目录下
+- 架构图源文件使用 `.puml` 扩展名
+- 生成的图片使用 `.png` 或 `.svg` 格式
+- README文档应包含系统概览和快速开始指南
+
+## 文档内容标准
+- 使用中文编写用户面向的文档
+- 技术规范和API文档可以使用英文
+- 保持文档和代码的同步更新
+- 包含必要的示例和用例说明

@@ -1,0 +1,37 @@
+# Build outputs
+/bin/
+/build/
+/dist/
+
+# Go build cache
+/go/pkg/
+
+# Test binaries
+*.test
+
+# Coverage files
+*.out
+*.prof
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Alfred Workflow development
+*.alfredworkflow.bak

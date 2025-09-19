@@ -1,0 +1,43 @@
+---
+globs: *.go
+---
+
+# 日志输出规范
+
+## 日志语言要求
+- **禁止在日志中输出中文内容**
+- 所有日志信息必须使用英文
+- 这确保了日志的国际化兼容性和标准化
+
+## 日志输出方式
+- **禁止使用print方式输出日志**
+- 必须使用专业的日志组件进行日志记录
+- 推荐使用的Go日志库：
+  - logrus
+  - zap
+  - slog (Go 1.21+)
+
+## 日志级别规范
+使用标准的日志级别：
+- **ERROR**: 错误信息，需要立即关注
+- **WARN**: 警告信息，可能导致问题
+- **INFO**: 一般信息，程序正常运行状态
+- **DEBUG**: 调试信息，开发和故障排查使用
+
+## 日志格式建议
+```go
+// 推荐的日志记录方式
+log.WithFields(logrus.Fields{
+    "user_id": userID,
+    "action": "translate",
+    "source_lang": sourceLang,
+    "target_lang": targetLang,
+}).Info("translation request processed successfully")
+
+// 错误日志示例
+log.WithError(err).Error("failed to connect to translation service")
+```
+
+## 敏感信息处理
+- 不要在日志中记录敏感信息（API密钥、密码等）
+- 对用户输入进行适当的脱敏处理

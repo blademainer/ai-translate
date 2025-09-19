@@ -1,0 +1,72 @@
+---
+alwaysApply: true
+---
+
+# 构建和二进制文件管理规范
+
+## 二进制文件目录管理
+- **编译的二进制产物必须放置在固定目录**
+- 推荐使用 `bin/` 目录存放所有编译产物
+- 该目录必须添加到.gitignore中，避免提交二进制文件
+
+## .gitignore配置
+确保包含以下内容：
+```gitignore
+# Build outputs
+/bin/
+/build/
+/dist/
+
+# Go build cache
+/go/pkg/
+
+# Test binaries
+*.test
+
+# Coverage files
+*.out
+*.prof
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+```
+
+## 构建脚本规范
+创建标准化的构建脚本：
+```makefile
+# Build directory
+BUILD_DIR := bin
+BINARY_NAME := ai-translate
+
+# Build targets
+.PHONY: build
+build:
+	mkdir -p $(BUILD_DIR)
+	go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/
+
+.PHONY: build-all
+build-all:
+	mkdir -p $(BUILD_DIR)
+	GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/
+	GOOS=darwin GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/
+	GOOS=windows GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/
+
+.PHONY: clean
+clean:
+	rm -rf $(BUILD_DIR)
+```
+
+## 测试二进制管理
+- 测试产生的二进制文件也应放在bin/目录下
+- 使用 `go test -c` 编译测试二进制时指定输出路径
+- 确保测试清理能正确删除临时文件
+
+## 版本信息
+- 在二进制文件中嵌入版本信息
+- 使用ldflags在构建时注入版本号和构建时间
+- 提供 `--version` 命令行参数显示版本信息

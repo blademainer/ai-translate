@@ -1,0 +1,38 @@
+---
+alwaysApply: true
+---
+
+# 项目结构和依赖管理规范
+
+## 项目布局
+这是一个AI翻译项目，包含以下主要组件：
+- Python脚本：[openai.py](mdc:openai.py) - 主要的翻译逻辑
+- Alfred Workflow：用于macOS Alfred集成
+- 未来可能包含Go组件
+
+## 依赖管理策略
+### Go项目依赖
+- 使用go.mod管理Go依赖
+- 在更新依赖时遵循以下流程：
+  1. 修改依赖项目代码
+  2. 提交git并获取commit_id  
+  3. 执行 `go get ${project_url}@${commit_id}`
+  4. 更新go.mod和go.sum
+
+### Python项目依赖
+- 如果需要Python依赖，创建requirements.txt
+- 使用虚拟环境管理Python依赖
+
+## 目录结构建议
+```
+.
+├── cmd/           # Go主程序入口
+├── internal/      # 内部包，不对外暴露
+├── pkg/          # 可重用的库代码
+├── api/          # API定义和proto文件
+├── scripts/      # 构建和部署脚本
+├── docs/         # 项目文档
+├── bin/          # 编译产物（需要添加到.gitignore）
+├── openai.py     # Python翻译脚本
+└── *.alfredworkflow # Alfred工作流文件
+```
