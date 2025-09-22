@@ -137,6 +137,8 @@ python3 openai.py "你的文本"
 - **Turbo优化参数** - 当启用turbo模式时显示的优化配置
 - **HTTP响应详情** - 状态码、响应头、响应体
 
+**重要说明：** 调试信息输出到stderr，不会影响Alfred Workflow的JSON解析。这确保了调试模式与Alfred完全兼容。
+
 ### 详细调试模式
 
 启用 `DEBUG_VERBOSE=true` 可以显示完整的JSON请求体：
@@ -233,6 +235,12 @@ python3 openai.py "测试文本"
 ```
 
 ## 更新日志
+
+- **v1.2** - 修复Alfred集成问题
+  - 🔧 修复调试模式下Alfred JSON解析错误
+  - ✅ 调试信息正确输出到stderr，避免影响stdout
+  - 🛡️ 确保调试模式与Alfred Workflow完全兼容
+  - 📊 添加debug_verbose_print函数优化详细输出控制
 
 - **v1.1** - 增强调试功能
   - 添加详细的HTTP请求调试信息

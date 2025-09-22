@@ -8,6 +8,20 @@ import os
 import requests
 import re
 
+def debug_print(message):
+    """
+    打印调试信息到stderr，避免影响stdout的JSON输出
+    """
+    if debug:
+        print(message, file=sys.stderr)
+
+def debug_verbose_print(message):
+    """
+    打印详细调试信息到stderr（仅在DEBUG_VERBOSE=true时）
+    """
+    if debug and debug_verbose:
+        print(message, file=sys.stderr)
+
 # 模拟延时 0.5 秒
 time.sleep(0.5)
 
@@ -69,8 +83,7 @@ def get_turbo_optimized_params(base_params):
         if use_ollama:
             turbo_params["stream"] = False  # Ollama默认不使用stream以提高兼容性
         
-        if debug:
-            print(f"Debug - 启用Turbo模式优化，模型: {model}")
+        debug_print(f"Debug - 启用Turbo模式优化，模型: {model}")
     
     return turbo_params
 
@@ -153,22 +166,19 @@ def translate_long_text(text, target_language="zh"):
         # 如果不是长文本，直接调用普通翻译
         return translate_text(text, target_language)
     
-    if debug:
-        print(f"Debug - 检测到长文本，长度: {len(text)} 字符")
+    debug_print(f"Debug - 检测到长文本，长度: {len(text)} 字符")
     
     # 分段处理
     segments = segment_text(text)
     
-    if debug:
-        print(f"Debug - 分为 {len(segments)} 段进行翻译")
-        for i, segment in enumerate(segments, 1):
-            print(f"Debug - 第{i}段 ({len(segment)}字符): {segment[:50]}...")
+    debug_print(f"Debug - 分为 {len(segments)} 段进行翻译")
+    for i, segment in enumerate(segments, 1):
+        debug_print(f"Debug - 第{i}段 ({len(segment)}字符): {segment[:50]}...")
     
     translated_segments = []
     
     for i, segment in enumerate(segments, 1):
-        if debug:
-            print(f"Debug - 正在翻译第 {i}/{len(segments)} 段...")
+        debug_print(f"Debug - 正在翻译第 {i}/{len(segments)} 段...")
         
         try:
             translated_segment = translate_text(segment, target_language)
@@ -181,8 +191,7 @@ def translate_long_text(text, target_language="zh"):
                 time.sleep(delay)
                 
         except Exception as e:
-            if debug:
-                print(f"Debug - 第{i}段翻译失败: {str(e)}")
+            debug_print(f"Debug - 第{i}段翻译失败: {str(e)}")
             translated_segments.append(f"[翻译失败: {str(e)}]")
     
     # 拼接结果
@@ -192,8 +201,7 @@ def translate_long_text(text, target_language="zh"):
     else:
         result = ' '.join(translated_segments)
     
-    if debug:
-        print(f"Debug - 长文本翻译完成，结果长度: {len(result)} 字符")
+    debug_print(f"Debug - 长文本翻译完成，结果长度: {len(result)} 字符")
     
     return result
 
@@ -221,56 +229,53 @@ def translate_text(text, target_language="zh"):
     # 应用turbo模式优化
     data = get_turbo_optimized_params(base_data)
 
-    if debug:
-        print(f"Debug - HTTP请求详情:")
-        print(f"  URL: {api_url}")
-        print(f"  Method: POST")
-        print(f"  Headers:")
-        for key, value in headers.items():
-            # 隐藏敏感信息
-            if key.lower() == 'authorization':
-                print(f"    {key}: Bearer {value[:10]}...{value[-4:] if len(value) > 14 else '***'}")
-            else:
-                print(f"    {key}: {value}")
-        
-        print(f"  Request Body:")
-        print(f"    Model: {data.get('model', 'N/A')}")
-        print(f"    Max Tokens: {data.get('max_tokens', 'N/A')}")
-        print(f"    Temperature: {data.get('temperature', 'N/A')}")
-        print(f"    Top P: {data.get('top_p', 'N/A')}")
-        print(f"    Messages Count: {len(data.get('messages', []))}")
-        
-        # 如果启用了turbo模式，显示优化参数
-        if use_turbo or is_turbo_model(model):
-            print(f"    Turbo Optimizations:")
-            print(f"      - Temperature: {data.get('temperature', 'default')}")
-            print(f"      - Top P: {data.get('top_p', 'default')}")
-            print(f"      - Frequency Penalty: {data.get('frequency_penalty', 'default')}")
-            print(f"      - Presence Penalty: {data.get('presence_penalty', 'default')}")
-        
-        # 显示完整的JSON请求体（可选择性显示）
-        if debug_verbose:
-            print(f"  Full JSON Body: {json.dumps(data, ensure_ascii=False, indent=2)}")
-        
-        print(f"Debug - 发送HTTP请求到 {'Ollama' if use_ollama else 'OpenAI API'}...")
+    debug_print(f"Debug - HTTP请求详情:")
+    debug_print(f"  URL: {api_url}")
+    debug_print(f"  Method: POST")
+    debug_print(f"  Headers:")
+    for key, value in headers.items():
+        # 隐藏敏感信息
+        if key.lower() == 'authorization':
+            debug_print(f"    {key}: Bearer {value[:10]}...{value[-4:] if len(value) > 14 else '***'}")
+        else:
+            debug_print(f"    {key}: {value}")
+    
+    debug_print(f"  Request Body:")
+    debug_print(f"    Model: {data.get('model', 'N/A')}")
+    debug_print(f"    Max Tokens: {data.get('max_tokens', 'N/A')}")
+    debug_print(f"    Temperature: {data.get('temperature', 'N/A')}")
+    debug_print(f"    Top P: {data.get('top_p', 'N/A')}")
+    debug_print(f"    Messages Count: {len(data.get('messages', []))}")
+    
+    # 如果启用了turbo模式，显示优化参数
+    if use_turbo or is_turbo_model(model):
+        debug_print(f"    Turbo Optimizations:")
+        debug_print(f"      - Temperature: {data.get('temperature', 'default')}")
+        debug_print(f"      - Top P: {data.get('top_p', 'default')}")
+        debug_print(f"      - Frequency Penalty: {data.get('frequency_penalty', 'default')}")
+        debug_print(f"      - Presence Penalty: {data.get('presence_penalty', 'default')}")
+    
+    # 显示完整的JSON请求体（可选择性显示）
+    debug_verbose_print(f"  Full JSON Body: {json.dumps(data, ensure_ascii=False, indent=2)}")
+    
+    debug_print(f"Debug - 发送HTTP请求到 {'Ollama' if use_ollama else 'OpenAI API'}...")
 
     response = requests.post(api_url, headers=headers, json=data)
 
-    if debug:
-        print(f"Debug - HTTP响应详情:")
-        print(f"  Status Code: {response.status_code}")
-        print(f"  Response Headers:")
-        for key, value in response.headers.items():
-            print(f"    {key}: {value}")
-        
-        # 限制响应内容的输出长度，避免过长
-        response_text = response.text
-        if len(response_text) > 1000:
-            print(f"  Response Body (truncated): {response_text[:500]}...{response_text[-200:]}")
-        else:
-            print(f"  Response Body: {response_text}")
-        
-        print(f"  Response Size: {len(response_text)} characters")
+    debug_print(f"Debug - HTTP响应详情:")
+    debug_print(f"  Status Code: {response.status_code}")
+    debug_print(f"  Response Headers:")
+    for key, value in response.headers.items():
+        debug_print(f"    {key}: {value}")
+    
+    # 限制响应内容的输出长度，避免过长
+    response_text = response.text
+    if len(response_text) > 1000:
+        debug_print(f"  Response Body (truncated): {response_text[:500]}...{response_text[-200:]}")
+    else:
+        debug_print(f"  Response Body: {response_text}")
+    
+    debug_print(f"  Response Size: {len(response_text)} characters")
 
     if response.status_code == 200:
         if use_ollama:
@@ -284,13 +289,11 @@ def translate_text(text, target_language="zh"):
                         if 'message' in line_data and 'content' in line_data['message']:
                             full_content += line_data['message']['content']
                     except json.JSONDecodeError:
-                        if debug:
-                            print(f"Debug - 无法解析JSON行: {line}")
+                        debug_print(f"Debug - 无法解析JSON行: {line}")
                             
                 return full_content.strip()
             except Exception as e:
-                if debug:
-                    print(f"Debug - Ollama解析错误: {str(e)}")
+                debug_print(f"Debug - Ollama解析错误: {str(e)}")
                 return f"Error parsing Ollama response: {str(e)}"
         else:
             # 标准OpenAI API响应
@@ -304,11 +307,10 @@ def main():
     query = ' '.join(sys.argv[1:]).strip()
 
     # 显示turbo模式状态
-    if debug:
-        turbo_enabled = use_turbo or is_turbo_model(model)
-        print(f"Debug - Turbo模式状态: {'启用' if turbo_enabled else '禁用'} (模型: {model})")
-        if turbo_enabled:
-            print("Debug - 性能优化: 降低延时、优化参数、快速响应")
+    turbo_enabled = use_turbo or is_turbo_model(model)
+    debug_print(f"Debug - Turbo模式状态: {'启用' if turbo_enabled else '禁用'} (模型: {model})")
+    if turbo_enabled:
+        debug_print("Debug - 性能优化: 降低延时、优化参数、快速响应")
 
     if not query:
         # 如果没有输入内容，返回空结果
