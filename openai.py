@@ -157,7 +157,7 @@ def translate_text(text, target_language="zh"):
         "Authorization": f"Bearer {api_key}",
     }
 
-    prompt = f"Translate the following text to {target_language} and just response translation text(If it's just a single word, please also provide the english pronunciation().), content below:\n\n{text}"
+    prompt = f"Translate the following text to {target_language} and just response translation text(If it's just a single word, please also provide the english pronunciation(). For acronyms like API, CAP, CPU, etc., use letter-by-letter pronunciation, e.g., CAP should be pronounced as /siː eɪ piː/, not as Chinese pinyin.), content below:\n\n{text}"
 
     data = {
         "model": model,

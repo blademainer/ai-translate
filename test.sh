@@ -92,7 +92,7 @@ test_short_text() {
     
     print_info "测试文本: $short_text"
     
-    if result=$(python3 "$SCRIPT_PATH" "$short_text" 2>&1); then
+    if result=$(/usr/bin/python3 "$SCRIPT_PATH" "$short_text" 2>&1); then
         if echo "$result" | grep -q "items"; then
             print_success "短文本翻译测试通过"
             return 0
@@ -108,6 +108,49 @@ test_short_text() {
     fi
 }
 
+# 测试缩略词发音
+test_acronym_pronunciation() {
+    print_info "测试缩略词发音..."
+    
+    local acronyms=("CAP" "API" "CPU" "GPU" "SQL")
+    local failed_count=0
+    
+    for acronym in "${acronyms[@]}"; do
+        print_info "测试缩略词: $acronym"
+        local result
+        
+        if result=$(/usr/bin/python3 "$SCRIPT_PATH" "$acronym" 2>&1); then
+            # 检查是否包含正确的字母发音格式，而不是汉语拼音
+            if echo "$result" | grep -q "items"; then
+                local translation_content=$(echo "$result" | /usr/bin/python3 -c "import sys, json; data=json.load(sys.stdin); print(data['items'][0]['title'])")
+                
+                # 检查是否包含字母发音（包含斜杠或音标符号）
+                if echo "$translation_content" | grep -qE '(/[a-zA-Z\s]+/|[ɪəɑɒʌʊiːuːaɪaʊ]+)'; then
+                    print_success "$acronym 发音测试通过: $translation_content"
+                else
+                    print_warning "$acronym 可能缺少正确的发音标注: $translation_content"
+                fi
+            else
+                print_error "$acronym 翻译返回格式错误"
+                echo "$result"
+                ((failed_count++))
+            fi
+        else
+            print_error "$acronym 翻译失败"
+            echo "$result"
+            ((failed_count++))
+        fi
+    done
+    
+    if [ $failed_count -eq 0 ]; then
+        print_success "缩略词发音测试全部通过"
+        return 0
+    else
+        print_error "缩略词发音测试失败: $failed_count/${#acronyms[@]}"
+        return 1
+    fi
+}
+
 # 测试中文长文本翻译
 test_chinese_long_text() {
     print_info "测试中文长文本翻译..."
@@ -117,7 +160,7 @@ test_chinese_long_text() {
     print_info "测试中文长文本 (${#chinese_text} 字符)"
     
     local result
-    if result=$(timeout 60 python3 "$SCRIPT_PATH" "$chinese_text" 2>&1); then
+    if result=$(/usr/bin/python3 "$SCRIPT_PATH" "$chinese_text" 2>&1); then
         if echo "$result" | grep -q "检测到长文本"; then
             print_success "中文长文本检测正常"
         else
@@ -148,7 +191,7 @@ test_english_long_text() {
     print_info "测试英文长文本 (${#english_text} 字符)"
     
     local result
-    if result=$(timeout 90 python3 "$SCRIPT_PATH" "$english_text" 2>&1); then
+    if result=$(/usr/bin/python3 "$SCRIPT_PATH" "$english_text" 2>&1); then
         if echo "$result" | grep -q "检测到长文本"; then
             print_success "英文长文本检测正常"
         else
@@ -184,7 +227,7 @@ test_performance() {
     local duration
     
     start_time=$(date +%s)
-    python3 "$SCRIPT_PATH" "$test_text" > /dev/null 2>&1
+    /usr/bin/python3 "$SCRIPT_PATH" "$test_text" > /dev/null 2>&1
     end_time=$(date +%s)
     
     duration=$((end_time - start_time))
@@ -213,12 +256,14 @@ show_help() {
     echo "  -h, --help     显示帮助信息"
     echo "  -s, --short    仅测试短文本"
     echo "  -l, --long     仅测试长文本"
+    echo "  -a, --acronym  仅测试缩略词发音"
     echo "  -p, --perf     仅进行性能测试"
     echo "  -m, --model    指定测试模型 (默认: $DEFAULT_MODEL)"
     echo ""
     echo "示例:"
     echo "  $0                    # 运行所有测试"
     echo "  $0 -s                 # 仅测试短文本"
+    echo "  $0 -a                 # 仅测试缩略词发音"
     echo "  $0 -m qwen:32b        # 使用指定模型测试"
 }
 
@@ -226,6 +271,7 @@ show_help() {
 run_tests() {
     local test_short=true
     local test_long=true
+    local test_acronym=true
     local test_perf=true
     
     # 解析参数
@@ -237,17 +283,26 @@ run_tests() {
                 ;;
             -s|--short)
                 test_long=false
+                test_acronym=false
                 test_perf=false
                 shift
                 ;;
             -l|--long)
                 test_short=false
+                test_acronym=false
+                test_perf=false
+                shift
+                ;;
+            -a|--acronym)
+                test_short=false
+                test_long=false
                 test_perf=false
                 shift
                 ;;
             -p|--perf)
                 test_short=false
                 test_long=false
+                test_acronym=false
                 shift
                 ;;
             -m|--model)
@@ -276,6 +331,14 @@ run_tests() {
     if [ "$test_short" = true ]; then
         ((total_tests++))
         if ! test_short_text; then
+            ((failed_tests++))
+        fi
+        echo ""
+    fi
+    
+    if [ "$test_acronym" = true ]; then
+        ((total_tests++))
+        if ! test_acronym_pronunciation; then
             ((failed_tests++))
         fi
         echo ""
