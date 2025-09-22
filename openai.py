@@ -19,6 +19,8 @@ debug = os.getenv('DEBUG', 'false').lower() in ['true', '1', 'yes']
 use_ollama = os.getenv('USE_OLLAMA', 'false').lower() in ['true', '1', 'yes']
 # Turbo模式配置
 use_turbo = os.getenv('USE_TURBO', 'false').lower() in ['true', '1', 'yes']
+# Debug详细模式配置 - 显示完整的JSON请求体
+debug_verbose = os.getenv('DEBUG_VERBOSE', 'false').lower() in ['true', '1', 'yes']
 # 长文本检测阈值
 long_text_threshold = int(os.getenv('LONG_TEXT_THRESHOLD', '100'))  # 默认100字符
 max_segment_length = int(os.getenv('MAX_SEGMENT_LENGTH', '400'))    # 每段最大长度
@@ -220,15 +222,55 @@ def translate_text(text, target_language="zh"):
     data = get_turbo_optimized_params(base_data)
 
     if debug:
-        print(f"Debug - 请求URL: {api_url}")
-        print(f"Debug - 请求头: {headers}")
-        print(f"Debug - 请求体: {json.dumps(data, ensure_ascii=False)}")
+        print(f"Debug - HTTP请求详情:")
+        print(f"  URL: {api_url}")
+        print(f"  Method: POST")
+        print(f"  Headers:")
+        for key, value in headers.items():
+            # 隐藏敏感信息
+            if key.lower() == 'authorization':
+                print(f"    {key}: Bearer {value[:10]}...{value[-4:] if len(value) > 14 else '***'}")
+            else:
+                print(f"    {key}: {value}")
+        
+        print(f"  Request Body:")
+        print(f"    Model: {data.get('model', 'N/A')}")
+        print(f"    Max Tokens: {data.get('max_tokens', 'N/A')}")
+        print(f"    Temperature: {data.get('temperature', 'N/A')}")
+        print(f"    Top P: {data.get('top_p', 'N/A')}")
+        print(f"    Messages Count: {len(data.get('messages', []))}")
+        
+        # 如果启用了turbo模式，显示优化参数
+        if use_turbo or is_turbo_model(model):
+            print(f"    Turbo Optimizations:")
+            print(f"      - Temperature: {data.get('temperature', 'default')}")
+            print(f"      - Top P: {data.get('top_p', 'default')}")
+            print(f"      - Frequency Penalty: {data.get('frequency_penalty', 'default')}")
+            print(f"      - Presence Penalty: {data.get('presence_penalty', 'default')}")
+        
+        # 显示完整的JSON请求体（可选择性显示）
+        if debug_verbose:
+            print(f"  Full JSON Body: {json.dumps(data, ensure_ascii=False, indent=2)}")
+        
+        print(f"Debug - 发送HTTP请求到 {'Ollama' if use_ollama else 'OpenAI API'}...")
 
     response = requests.post(api_url, headers=headers, json=data)
 
     if debug:
-        print(f"Debug - 响应状态码: {response.status_code}")
-        print(f"Debug - 响应内容: {response.text}")
+        print(f"Debug - HTTP响应详情:")
+        print(f"  Status Code: {response.status_code}")
+        print(f"  Response Headers:")
+        for key, value in response.headers.items():
+            print(f"    {key}: {value}")
+        
+        # 限制响应内容的输出长度，避免过长
+        response_text = response.text
+        if len(response_text) > 1000:
+            print(f"  Response Body (truncated): {response_text[:500]}...{response_text[-200:]}")
+        else:
+            print(f"  Response Body: {response_text}")
+        
+        print(f"  Response Size: {len(response_text)} characters")
 
     if response.status_code == 200:
         if use_ollama:

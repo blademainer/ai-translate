@@ -75,6 +75,7 @@ setup_test_env() {
     export OPENAI_API_KEY="ollama"
     export MODEL="$DEFAULT_MODEL"
     export DEBUG=true
+    export DEBUG_VERBOSE=false
     export LONG_TEXT_THRESHOLD=100
     export MAX_SEGMENT_LENGTH=300
     export USE_TURBO=true
@@ -218,6 +219,48 @@ test_english_long_text() {
     fi
 }
 
+# 测试HTTP调试功能
+test_http_debug() {
+    print_info "测试HTTP调试功能..."
+    
+    local test_text="Debug test"
+    local result
+    
+    # 测试HTTP调试信息输出
+    if result=$(/usr/bin/python3 "$SCRIPT_PATH" "$test_text" 2>&1); then
+        if echo "$result" | grep -q "HTTP请求详情"; then
+            print_success "HTTP请求调试信息正常"
+        else
+            print_warning "未检测到HTTP请求调试信息"
+        fi
+        
+        if echo "$result" | grep -q "Request Body"; then
+            print_success "请求体参数调试信息正常"
+        fi
+        
+        if echo "$result" | grep -q "HTTP响应详情"; then
+            print_success "HTTP响应调试信息正常"
+        fi
+        
+        if echo "$result" | grep -q "Status Code"; then
+            print_success "响应状态码调试信息正常"
+        fi
+        
+        if echo "$result" | grep -q "items"; then
+            print_success "HTTP调试模式翻译测试通过"
+            return 0
+        else
+            print_error "HTTP调试模式翻译返回格式错误"
+            echo "$result"
+            return 1
+        fi
+    else
+        print_error "HTTP调试测试失败"
+        echo "$result"
+        return 1
+    fi
+}
+
 # 测试Turbo模式功能
 test_turbo_mode() {
     print_info "测试Turbo模式功能..."
@@ -278,7 +321,7 @@ test_performance() {
 # 清理测试环境
 cleanup() {
     print_info "清理测试环境..."
-    unset USE_OLLAMA OPENAI_API_URL OPENAI_API_KEY MODEL DEBUG LONG_TEXT_THRESHOLD MAX_SEGMENT_LENGTH USE_TURBO
+    unset USE_OLLAMA OPENAI_API_URL OPENAI_API_KEY MODEL DEBUG DEBUG_VERBOSE LONG_TEXT_THRESHOLD MAX_SEGMENT_LENGTH USE_TURBO
     print_success "清理完成"
 }
 
@@ -294,6 +337,7 @@ show_help() {
     echo "  -l, --long     仅测试长文本"
     echo "  -a, --acronym  仅测试缩略词发音"
     echo "  -t, --turbo    仅测试Turbo模式"
+    echo "  -d, --debug    仅测试HTTP调试功能"
     echo "  -p, --perf     仅进行性能测试"
     echo "  -m, --model    指定测试模型 (默认: $DEFAULT_MODEL)"
     echo ""
@@ -302,6 +346,7 @@ show_help() {
     echo "  $0 -s                 # 仅测试短文本"
     echo "  $0 -a                 # 仅测试缩略词发音"
     echo "  $0 -t                 # 仅测试Turbo模式"
+    echo "  $0 -d                 # 仅测试HTTP调试功能"
     echo "  $0 -m qwen:32b        # 使用指定模型测试"
 }
 
@@ -311,6 +356,7 @@ run_tests() {
     local test_long=true
     local test_acronym=true
     local test_turbo=true
+    local test_debug=true
     local test_perf=true
     
     # 解析参数
@@ -324,6 +370,7 @@ run_tests() {
                 test_long=false
                 test_acronym=false
                 test_turbo=false
+                test_debug=false
                 test_perf=false
                 shift
                 ;;
@@ -331,6 +378,7 @@ run_tests() {
                 test_short=false
                 test_acronym=false
                 test_turbo=false
+                test_debug=false
                 test_perf=false
                 shift
                 ;;
@@ -338,6 +386,7 @@ run_tests() {
                 test_short=false
                 test_long=false
                 test_turbo=false
+                test_debug=false
                 test_perf=false
                 shift
                 ;;
@@ -345,6 +394,15 @@ run_tests() {
                 test_short=false
                 test_long=false
                 test_acronym=false
+                test_debug=false
+                test_perf=false
+                shift
+                ;;
+            -d|--debug)
+                test_short=false
+                test_long=false
+                test_acronym=false
+                test_turbo=false
                 test_perf=false
                 shift
                 ;;
@@ -353,6 +411,7 @@ run_tests() {
                 test_long=false
                 test_acronym=false
                 test_turbo=false
+                test_debug=false
                 shift
                 ;;
             -m|--model)
@@ -397,6 +456,14 @@ run_tests() {
     if [ "$test_turbo" = true ]; then
         ((total_tests++))
         if ! test_turbo_mode; then
+            ((failed_tests++))
+        fi
+        echo ""
+    fi
+    
+    if [ "$test_debug" = true ]; then
+        ((total_tests++))
+        if ! test_http_debug; then
             ((failed_tests++))
         fi
         echo ""

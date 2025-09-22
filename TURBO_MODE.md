@@ -112,11 +112,61 @@ Debug - 性能优化: 降低延时、优化参数、快速响应
 export USE_TURBO=true           # 强制启用turbo模式
 export MODEL=qwen2.5-turbo:7b   # 使用turbo模型
 export DEBUG=true               # 显示调试信息
+export DEBUG_VERBOSE=true       # 显示完整的JSON请求体（可选）
 
 # 基础配置
 export USE_OLLAMA=true
 export OPENAI_API_URL=http://localhost:11434/api/chat
 export OPENAI_API_KEY=ollama
+```
+
+## 调试功能
+
+### HTTP请求调试
+
+当启用 `DEBUG=true` 时，系统会显示详细的HTTP请求和响应信息：
+
+```bash
+export DEBUG=true
+python3 openai.py "你的文本"
+```
+
+调试信息包括：
+- **HTTP请求详情** - URL、方法、请求头
+- **请求体参数** - 模型、令牌数、温度、Top P等
+- **Turbo优化参数** - 当启用turbo模式时显示的优化配置
+- **HTTP响应详情** - 状态码、响应头、响应体
+
+### 详细调试模式
+
+启用 `DEBUG_VERBOSE=true` 可以显示完整的JSON请求体：
+
+```bash
+export DEBUG=true
+export DEBUG_VERBOSE=true
+python3 openai.py "你的文本"
+```
+
+### 调试输出示例
+
+```
+Debug - HTTP请求详情:
+  URL: http://localhost:11434/api/chat
+  Method: POST
+  Headers:
+    Content-Type: application/json
+    Authorization: Bearer Bearer oll...***
+  Request Body:
+    Model: qwen2.5:7b
+    Max Tokens: 2000
+    Temperature: 0.7
+    Top P: 0.9
+    Messages Count: 2
+    Turbo Optimizations:
+      - Temperature: 0.7
+      - Top P: 0.9
+      - Frequency Penalty: 0.0
+      - Presence Penalty: 0.0
 ```
 
 ## 性能提升效果
@@ -167,14 +217,29 @@ export OPENAI_API_KEY=ollama
 # 查看当前配置
 env | grep -E "(TURBO|MODEL|DEBUG)"
 
+# 测试基本调试功能
+./test.sh --debug
+
 # 测试turbo功能
 ./test.sh --turbo
 
-# 运行性能比较
-python3 turbo_example.py
+# 启用详细HTTP调试
+export DEBUG=true DEBUG_VERBOSE=true
+python3 openai.py "测试文本"
+
+# 仅启用基本调试（不显示完整JSON）
+export DEBUG=true DEBUG_VERBOSE=false
+python3 openai.py "测试文本"
 ```
 
 ## 更新日志
+
+- **v1.1** - 增强调试功能
+  - 添加详细的HTTP请求调试信息
+  - 新增DEBUG_VERBOSE环境变量支持
+  - 优化调试信息输出格式
+  - 添加HTTP调试测试功能
+  - 隐藏敏感的API密钥信息
 
 - **v1.0** - 初始turbo模式实现
   - 添加USE_TURBO环境变量支持
