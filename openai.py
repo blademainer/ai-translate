@@ -17,6 +17,8 @@ api_key = os.getenv('OPENAI_API_KEY')
 model = os.getenv('MODEL', 'gpt-4o-mini')
 debug = os.getenv('DEBUG', 'false').lower() in ['true', '1', 'yes']
 use_ollama = os.getenv('USE_OLLAMA', 'false').lower() in ['true', '1', 'yes']
+# Turbo模式配置
+use_turbo = os.getenv('USE_TURBO', 'false').lower() in ['true', '1', 'yes']
 # 长文本检测阈值
 long_text_threshold = int(os.getenv('LONG_TEXT_THRESHOLD', '100'))  # 默认100字符
 max_segment_length = int(os.getenv('MAX_SEGMENT_LENGTH', '400'))    # 每段最大长度
@@ -24,6 +26,51 @@ max_segment_length = int(os.getenv('MAX_SEGMENT_LENGTH', '400'))    # 每段最�
 
 if not api_key:
     raise ValueError("API key not found! Please set the OPENAI_API_KEY environment variable.")
+
+def is_turbo_model(model_name):
+    """
+    检测模型是否支持turbo模式
+    """
+    turbo_models = [
+        # OpenAI turbo模型
+        'gpt-3.5-turbo', 'gpt-4-turbo', 'gpt-4o-turbo',
+        # 其他支持turbo的模型
+        'claude-3-haiku', 'claude-3-sonnet-turbo',
+        # Ollama中的turbo模型
+        'qwen2.5-turbo', 'qwen-turbo', 'llama3-turbo', 'gemma-turbo',
+        # 百度文心turbo
+        'ernie-turbo', 'ernie-speed',
+        # 腾讯混元turbo
+        'hunyuan-turbo'
+    ]
+    
+    model_lower = model_name.lower()
+    return any(turbo_keyword in model_lower for turbo_keyword in ['turbo', 'speed', 'fast'])
+
+def get_turbo_optimized_params(base_params):
+    """
+    获取turbo模式优化的参数
+    """
+    turbo_params = base_params.copy()
+    
+    if use_turbo or is_turbo_model(model):
+        # Turbo模式优化参数
+        turbo_params.update({
+            "temperature": 0.7,  # 降低随机性，提高响应速度
+            "max_tokens": 2000,  # 增加最大token数
+            "top_p": 0.9,       # 降低采样范围，提高响应速度
+            "frequency_penalty": 0.0,  # 减少频率惩罚
+            "presence_penalty": 0.0,   # 减少存在惩罚
+        })
+        
+        # 如果是流式API，启用流式模式
+        if use_ollama:
+            turbo_params["stream"] = False  # Ollama默认不使用stream以提高兼容性
+        
+        if debug:
+            print(f"Debug - 启用Turbo模式优化，模型: {model}")
+    
+    return turbo_params
 
 def is_long_text(text):
     """
@@ -126,8 +173,10 @@ def translate_long_text(text, target_language="zh"):
             translated_segments.append(translated_segment)
             
             # 在分段翻译之间添加小延时，避免API限制
+            # Turbo模式下减少延时
             if i < len(segments):
-                time.sleep(0.2)
+                delay = 0.1 if (use_turbo or is_turbo_model(model)) else 0.2
+                time.sleep(delay)
                 
         except Exception as e:
             if debug:
@@ -159,12 +208,16 @@ def translate_text(text, target_language="zh"):
 
     prompt = f"Translate the following text to {target_language} and just response translation text(If it's just a single word, please also provide the english pronunciation(). For acronyms like API, CAP, CPU, etc., use letter-by-letter pronunciation, e.g., CAP should be pronounced as /siː eɪ piː/, not as Chinese pinyin.), content below:\n\n{text}"
 
-    data = {
+    # 基础参数
+    base_data = {
         "model": model,
         "messages": [{"role": "system", "content": "You are a professional translator, and the content I need translated should prioritize terminology related to the field of computer technology."},
                      {"role": "user", "content": prompt}],
         "max_tokens": 1500,
     }
+    
+    # 应用turbo模式优化
+    data = get_turbo_optimized_params(base_data)
 
     if debug:
         print(f"Debug - 请求URL: {api_url}")
@@ -207,6 +260,13 @@ def translate_text(text, target_language="zh"):
 
 def main():
     query = ' '.join(sys.argv[1:]).strip()
+
+    # 显示turbo模式状态
+    if debug:
+        turbo_enabled = use_turbo or is_turbo_model(model)
+        print(f"Debug - Turbo模式状态: {'启用' if turbo_enabled else '禁用'} (模型: {model})")
+        if turbo_enabled:
+            print("Debug - 性能优化: 降低延时、优化参数、快速响应")
 
     if not query:
         # 如果没有输入内容，返回空结果

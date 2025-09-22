@@ -77,6 +77,7 @@ setup_test_env() {
     export DEBUG=true
     export LONG_TEXT_THRESHOLD=100
     export MAX_SEGMENT_LENGTH=300
+    export USE_TURBO=true
     
     print_success "测试环境设置完成"
     print_info "使用模型: $MODEL"
@@ -217,6 +218,41 @@ test_english_long_text() {
     fi
 }
 
+# 测试Turbo模式功能
+test_turbo_mode() {
+    print_info "测试Turbo模式功能..."
+    
+    local test_text="Machine learning and artificial intelligence"
+    local result
+    
+    # 测试turbo模式状态检测
+    if result=$(/usr/bin/python3 "$SCRIPT_PATH" "$test_text" 2>&1); then
+        if echo "$result" | grep -q "Turbo模式状态: 启用"; then
+            print_success "Turbo模式检测正常"
+        else
+            print_warning "未检测到Turbo模式启用标志"
+            echo "$result" | grep "Turbo模式状态" || print_info "Debug信息中无Turbo状态"
+        fi
+        
+        if echo "$result" | grep -q "性能优化"; then
+            print_success "Turbo模式性能优化配置正常"
+        fi
+        
+        if echo "$result" | grep -q "items"; then
+            print_success "Turbo模式翻译测试通过"
+            return 0
+        else
+            print_error "Turbo模式翻译返回格式错误"
+            echo "$result"
+            return 1
+        fi
+    else
+        print_error "Turbo模式测试失败"
+        echo "$result"
+        return 1
+    fi
+}
+
 # 性能测试
 test_performance() {
     print_info "进行性能测试..."
@@ -242,7 +278,7 @@ test_performance() {
 # 清理测试环境
 cleanup() {
     print_info "清理测试环境..."
-    unset USE_OLLAMA OPENAI_API_URL OPENAI_API_KEY MODEL DEBUG LONG_TEXT_THRESHOLD MAX_SEGMENT_LENGTH
+    unset USE_OLLAMA OPENAI_API_URL OPENAI_API_KEY MODEL DEBUG LONG_TEXT_THRESHOLD MAX_SEGMENT_LENGTH USE_TURBO
     print_success "清理完成"
 }
 
@@ -257,6 +293,7 @@ show_help() {
     echo "  -s, --short    仅测试短文本"
     echo "  -l, --long     仅测试长文本"
     echo "  -a, --acronym  仅测试缩略词发音"
+    echo "  -t, --turbo    仅测试Turbo模式"
     echo "  -p, --perf     仅进行性能测试"
     echo "  -m, --model    指定测试模型 (默认: $DEFAULT_MODEL)"
     echo ""
@@ -264,6 +301,7 @@ show_help() {
     echo "  $0                    # 运行所有测试"
     echo "  $0 -s                 # 仅测试短文本"
     echo "  $0 -a                 # 仅测试缩略词发音"
+    echo "  $0 -t                 # 仅测试Turbo模式"
     echo "  $0 -m qwen:32b        # 使用指定模型测试"
 }
 
@@ -272,6 +310,7 @@ run_tests() {
     local test_short=true
     local test_long=true
     local test_acronym=true
+    local test_turbo=true
     local test_perf=true
     
     # 解析参数
@@ -284,18 +323,28 @@ run_tests() {
             -s|--short)
                 test_long=false
                 test_acronym=false
+                test_turbo=false
                 test_perf=false
                 shift
                 ;;
             -l|--long)
                 test_short=false
                 test_acronym=false
+                test_turbo=false
                 test_perf=false
                 shift
                 ;;
             -a|--acronym)
                 test_short=false
                 test_long=false
+                test_turbo=false
+                test_perf=false
+                shift
+                ;;
+            -t|--turbo)
+                test_short=false
+                test_long=false
+                test_acronym=false
                 test_perf=false
                 shift
                 ;;
@@ -303,6 +352,7 @@ run_tests() {
                 test_short=false
                 test_long=false
                 test_acronym=false
+                test_turbo=false
                 shift
                 ;;
             -m|--model)
@@ -339,6 +389,14 @@ run_tests() {
     if [ "$test_acronym" = true ]; then
         ((total_tests++))
         if ! test_acronym_pronunciation; then
+            ((failed_tests++))
+        fi
+        echo ""
+    fi
+    
+    if [ "$test_turbo" = true ]; then
+        ((total_tests++))
+        if ! test_turbo_mode; then
             ((failed_tests++))
         fi
         echo ""
